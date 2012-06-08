@@ -65,13 +65,10 @@ foreach($playlistIds as $playlistId) {
 	file_put_contents($baseDir . '/playlist.xml', $playlistXmlData);
 
 	$playlistObject = new Playlist(new SimpleXMLElement($playlistXmlData), $ds->getConnection());
-//	$playlistObject = $ds->getPlaylist($playlistId);
 
 	$s = '<playlist>';
 	$s .= '<id>' . $playlistId . '</id>';
 	$s .= '<name>' . $playlistObject->getName() . '</name>';
-//	$s .= '<username>' . $playlistObject->getUsername() . '</username>';
-//	$s .= '<isPublic>' . $playlistObject->isPublic() . '</isPublic>';
 
 	$trackIds = $playlistObject->getTrackIds();
 	$s .= '<tracks>';
