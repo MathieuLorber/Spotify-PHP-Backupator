@@ -30,6 +30,9 @@ $fileHandle = fopen($backupFilename, 'w');
 function w($string) {
 	global $fileHandle;
 	
+	// test with playlist 127b837d1fd8abd4aab1c4c80c59afc702
+	$string = str_replace('&', '&amp;', $string);
+	
 	fwrite($fileHandle, $string);
 }
 
@@ -50,14 +53,37 @@ w($s);
 f('Begin listing');
 f($playlistsCount . ' playlists for user ' . $username);
 if($limit != -1) {
-	f('Stops at ' . $limit);
+	f('Stops at ' . $limit . ' iterations');
 }
 f('Writes in dir ' . $backupDir);
 
-$i = 1;
+$iteration = 1;
+// this one begins to be incremented when beginId is reached
+$runningIteration = 1;
+// is used if not null
+$beginId = NULL;
 
-//new SimpleXMLElement
+$isRunning = false;
+if($beginId == NULL) {
+	$isRunning = true;
+} else {
+	f('Begins at id : ' . $beginId);
+}
 foreach($playlistIds as $playlistId) {
+	if($beginId != NULL && $playlistId == $beginId) {
+		$isRunning = true;
+	}
+	if(!$isRunning) {
+		$iteration++;
+		continue;
+	}
+	if($limit != -1 && $runningIteration > $limit) {
+		break;
+	}
+	f('* ' . $iteration . ' / ' . $playlistsCount);
+	$iteration++;
+	$runningIteration++;
+
 	$playlistXmlData = $ds->getPlaylistXmlData($playlistId);
 	
 	$baseDir = $backupDir . '/' . $playlistId;
@@ -71,9 +97,13 @@ foreach($playlistIds as $playlistId) {
 	$s .= '<name>' . $playlistObject->getName() . '</name>';
 
 	$trackIds = $playlistObject->getTrackIds();
+	
 	$s .= '<tracks>';
-
 	foreach($trackIds as $trackId) {
+		// it happens when playlist is empty !
+		if(empty($trackId)) {
+			continue;
+		}
 		$trackXmlData = $ds->getTrackXmlData($trackId);
 		file_put_contents($baseDir. '/' . $trackId . '.xml', $trackXmlData);
 		
@@ -96,7 +126,7 @@ foreach($playlistIds as $playlistId) {
 			foreach($trackObject->getArtistName() as $artist) {
 				$s .= '<artist>' . $artist . '</artist>';
 			}
-			$s .= '<artists>';
+			$s .= '</artists>';
 		} else {
 			$s .= '<artist>' . $trackObject->getArtistName() . '</artist>';
 		}
@@ -107,12 +137,6 @@ foreach($playlistIds as $playlistId) {
 	$s .= '</tracks></playlist>';
 
 	w($s);
-
-	f('* ' . $i . ' / ' . $playlistsCount);
-	$i++;
-	if($limit != -1 && $i > $limit) {
-		break;
-	}
 }
 
 w('</playlists>');
