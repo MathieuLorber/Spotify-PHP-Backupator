@@ -9,6 +9,8 @@ require './DespotifyPHP/src/Despotify.php';
 $backupDir = 'backup-' . time();
 mkdir($backupDir);
 $backupFilename = $backupDir . '/backup.xml';
+$rawDir = $backupDir . '/raw';
+mkdir($rawDir);
 
 define('EOL', "\r\n");
 
@@ -26,14 +28,21 @@ if(!$ds->login($username, $password))
 
 $fileHandle = fopen($backupFilename, 'w');
 
-// write in backup file
+// write in "main" backup file
 function w($string) {
 	global $fileHandle;
-	
-	// test with playlist 127b837d1fd8abd4aab1c4c80c59afc702
-	$string = str_replace('&', '&amp;', $string);
-	
+
 	fwrite($fileHandle, $string);
+}
+
+// clean names for xml
+function c($string) {
+	$string = str_replace('&', '&amp;', $string);
+	$string = str_replace('<', '&lt;', $string); // cause I <3 U SO
+	$string = str_replace('>', '&gt;', $string);
+	$string = str_replace('"', '&quot;', $string);
+	$string = str_replace('\'', '&apos;', $string);
+	return $string;
 }
 
 // flush
@@ -86,7 +95,7 @@ foreach($playlistIds as $playlistId) {
 
 	$playlistXmlData = $ds->getPlaylistXmlData($playlistId);
 	
-	$baseDir = $backupDir . '/' . $playlistId;
+	$baseDir = $rawDir . '/' . $playlistId;
 	mkdir($baseDir);
 	file_put_contents($baseDir . '/playlist.xml', $playlistXmlData);
 
@@ -94,7 +103,7 @@ foreach($playlistIds as $playlistId) {
 
 	$s = '<playlist>';
 	$s .= '<id>' . $playlistId . '</id>';
-	$s .= '<name>' . $playlistObject->getName() . '</name>';
+	$s .= '<name>' . c($playlistObject->getName()) . '</name>';
 
 	$trackIds = $playlistObject->getTrackIds();
 	
@@ -117,18 +126,18 @@ foreach($playlistIds as $playlistId) {
 		$s .= '<track>';
 		$s .= '<id>' . $trackObject->getId() . '</id>';
 		$s .= '<spotifyId>' . toSpotifyId($trackObject->getId()) . '</spotifyId>';
-		$s .= '<name>' . $trackObject->getName() . '</name>';
-		$s .= '<album>' . $trackObject->getAlbumName() . '</album>';
+		$s .= '<name>' . c($trackObject->getName()) . '</name>';
+		$s .= '<album>' . c($trackObject->getAlbumName()) . '</album>';
 
 		// artist name is returned as an array if there are multiple artists performing the song
 		if(is_array($trackObject->getArtistName())) {
 			$s .= '<artists>';
 			foreach($trackObject->getArtistName() as $artist) {
-				$s .= '<artist>' . $artist . '</artist>';
+				$s .= '<artist>' . c($artist) . '</artist>';
 			}
 			$s .= '</artists>';
 		} else {
-			$s .= '<artist>' . $trackObject->getArtistName() . '</artist>';
+			$s .= '<artist>' . c($trackObject->getArtistName()) . '</artist>';
 		}
 		
 		$s .= '<length>' . $trackObject->getLength() . '</length>';
