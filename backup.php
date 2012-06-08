@@ -49,7 +49,7 @@ w($s);
 
 f('Begin listing');
 f($playlistsCount . ' playlists for user ' . $username);
-if($i != -1) {
+if($limit != -1) {
 	f('Stops at ' . $limit);
 }
 f('Writes in dir ' . $backupDir);
@@ -110,7 +110,7 @@ foreach($playlistIds as $playlistId) {
 
 	f('* ' . $i . ' / ' . $playlistsCount);
 	$i++;
-	if($i != -1 && $i > $limit) {
+	if($limit != -1 && $i > $limit) {
 		break;
 	}
 }
