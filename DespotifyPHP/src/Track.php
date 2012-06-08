@@ -249,7 +249,7 @@ class Track
 	
 	public function getLength()
 	{
-		return $this->length();
+		return $this->length;
 	}
 	
 	

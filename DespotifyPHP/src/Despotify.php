@@ -206,6 +206,34 @@ class Despotify
 		}
 	}
 	
+	public function getPlaylistXmlData($playlistId)
+	{
+		$playlistId = trim($playlistId);
+		
+		if(empty($playlistId))
+		{
+			return false;
+		}
+		
+		if($this->isConnected())
+		{
+			$this->connection->write('playlist ' . $playlistId . "\n");
+			
+			if(($length = $this->connection->readHeader()) === false) 
+			{
+				return false;
+			}
+			
+			$xmlData = $this->connection->read($length);
+			$xmlData = str_replace("\n", '', $xmlData);// to remove some oddly place newlines from the XML
+			
+			return $xmlData;
+		}
+		else
+		{
+			return false;
+		}
+	}
 	
 	/**
 	* Instantiates and returns a Playlist object
@@ -298,7 +326,33 @@ class Despotify
 		return $this->connection;
 	}
 	
-	
+	public function getTrackXmlData($trackId) {
+		// make sure its a 32 byte despotify id, not a 34 byte one
+		$trackId = chopDespotifyId($trackId);
+		
+		if($this->connection->isConnected())
+		{
+			// make sure it's a valid id
+			if(isValidDespotifyId($trackId))
+			{
+				$this->connection->write('browsetrack '. $trackId . "\n");
+				
+				if(($length = $this->connection->readHeader()) === false)
+				{
+					return false;
+				}
+				
+				$xmlResult = $this->connection->read($length);
+				
+				return $xmlResult;
+			}
+			else
+			{
+				echo 'invalid id: ' . $trackId . '<br/>';
+				return false;
+			}
+		}
+	}
 	
 	/**
 	* Instantiates and returns a track object

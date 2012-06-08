@@ -2,69 +2,123 @@
 
 // Source inspired from DespotifyPHP source example (DespotifyPHP/examples/songlisting.php)
 
+require './conf.php';
+
 require './DespotifyPHP/src/Despotify.php';
-require './auth.php';
 
-// specify how to connect to the gateway
-$gateway = '127.0.0.1';
-$port = 1234;
+$backupDir = 'backup-' . time();
+mkdir($backupDir);
+$backupFilename = $backupDir . '/backup.xml';
 
+define('EOL', "\r\n");
 
-// create Despotify object which will be used for all interaction with the gateway(and Spotify, through the gateway)
+$beginTime = time();
+
 $ds = new Despotify($gateway, $port);
-// attempt to connect
 if(!$ds->connect())
 {
 	die("Could not connect to gateway $gateway on port $port");
 }
-// attempt to login to Spotify
 if(!$ds->login($username, $password))
 {
 	die('Could not authenticate. Wrong username or password?');
 }
 
-// get an array containing ids for all playlists this user has
-$playlistArray = $ds->getPlaylistIds();
+$fileHandle = fopen($backupFilename, 'w');
 
-echo '<?xml version="1.0" encoding="utf-8"?><playlists>';
-
-// iterate over the array of playlist ids
-foreach($playlistArray as $playlistId)
-{
-	// get a Playlist object so that we can start extracting data
-	$playlistObject = $ds->getPlaylist($playlistId);
+// write in backup file
+function w($string) {
+	global $fileHandle;
 	
-	// print the playlist's name
-	echo '<playlist><title>' . $playlistObject->getName() . '</title>';
-
-	// get an array containing Track objects, representing the tracks in this playlist
-	$trackArray = $playlistObject->getTracks();
-	
-	
-	foreach($trackArray as $trackObject)
-	{
-		echo '<song>';
-			echo '<name>' . $trackObject->getName() . '</name>';
-			echo '<spotifyHttpLink>' . $trackObject->getHTTPLink() . '</spotifyHttpLink>';
-			echo '<artist>';
-			
-			// artist name is returned as an array if there are multiple artists performing the song
-			if(is_array($trackObject->getArtistName()))
-			{
-				// flatten the array
-				echo implode(', ', $trackObject->getArtistName());
-			}
-			else
-			{
-				echo $trackObject->getArtistName();
-			}
-			
-			echo '</artist>';
-		echo '</song>';
-	}
-	echo '</playlist>';
-	
-	break; // in this example we break here, thus only songs in the first playlist are listed. Because otherwise it might take long time to load the page(with all playlists)
+	fwrite($fileHandle, $string);
 }
 
-echo '</playlists>';
+// flush
+function f($string) {
+	echo $string . EOL;
+	ob_flush();
+}
+
+$playlistIds = $ds->getPlaylistIds();
+file_put_contents($backupDir . '/playlists-order.csv', implode($playlistIds, ';'));
+$playlistsCount = count($playlistIds);
+
+$s = '<?xml version="1.0" encoding="utf-8"?>';
+$s .= '<playlists origin="spotify" user="' . $username . '" number="' . $playlistsCount . '">';
+w($s);
+
+f('Begin listing');
+f($playlistsCount . ' playlists for user ' . $username);
+if($i != -1) {
+	f('Stops at ' . $limit);
+}
+f('Writes in dir ' . $backupDir);
+
+$i = 1;
+
+//new SimpleXMLElement
+foreach($playlistIds as $playlistId) {
+	$playlistXmlData = $ds->getPlaylistXmlData($playlistId);
+	
+	$baseDir = $backupDir . '/' . $playlistId;
+	mkdir($baseDir);
+	file_put_contents($baseDir . '/playlist.xml', $playlistXmlData);
+
+	$playlistObject = new Playlist(new SimpleXMLElement($playlistXmlData), $ds->getConnection());
+//	$playlistObject = $ds->getPlaylist($playlistId);
+
+	$s = '<playlist>';
+	$s .= '<id>' . $playlistId . '</id>';
+	$s .= '<name>' . $playlistObject->getName() . '</name>';
+//	$s .= '<username>' . $playlistObject->getUsername() . '</username>';
+//	$s .= '<isPublic>' . $playlistObject->isPublic() . '</isPublic>';
+
+	$trackIds = $playlistObject->getTrackIds();
+	$s .= '<tracks>';
+
+	foreach($trackIds as $trackId) {
+		$trackXmlData = $ds->getTrackXmlData($trackId);
+		file_put_contents($baseDir. '/' . $trackId . '.xml', $trackXmlData);
+		
+		$trackXmlObject = new SimpleXMLElement($trackXmlData);
+		// dirty fix as in Track.php
+		if(is_array($trackXmlObject)) {
+			$trackXmlObject = $trackXmlObject[0];
+		}
+		$trackObject = new Track($trackXmlObject, $ds->getConnection());	
+	
+		$s .= '<track>';
+		$s .= '<id>' . $trackObject->getId() . '</id>';
+		$s .= '<spotifyId>' . toSpotifyId($trackObject->getId()) . '</spotifyId>';
+		$s .= '<name>' . $trackObject->getName() . '</name>';
+		$s .= '<album>' . $trackObject->getAlbumName() . '</album>';
+
+		// artist name is returned as an array if there are multiple artists performing the song
+		if(is_array($trackObject->getArtistName())) {
+			$s .= '<artists>';
+			foreach($trackObject->getArtistName() as $artist) {
+				$s .= '<artist>' . $artist . '</artist>';
+			}
+			$s .= '<artists>';
+		} else {
+			$s .= '<artist>' . $trackObject->getArtistName() . '</artist>';
+		}
+		
+		$s .= '<length>' . $trackObject->getLength() . '</length>';
+		$s .= '</track>';
+	}
+	$s .= '</tracks></playlist>';
+
+	w($s);
+
+	f('* ' . $i . ' / ' . $playlistsCount);
+	$i++;
+	if($i != -1 && $i > $limit) {
+		break;
+	}
+}
+
+w('</playlists>');
+fclose($fileHandle);
+f('File ' . $backupFilename . ' finished');
+f('Backup took '. (time() - $beginTime) . 's');
