@@ -89,7 +89,7 @@ foreach($playlistIds as $playlistId) {
 	if($limit != -1 && $runningIteration > $limit) {
 		break;
 	}
-	f('* ' . $iteration . ' / ' . $playlistsCount);
+	f('* ' . $iteration . ' / ' . $playlistsCount . '  -  ' . $playlistId);
 	$iteration++;
 	$runningIteration++;
 
