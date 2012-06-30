@@ -52,7 +52,7 @@ function f($string) {
 }
 
 $playlistIds = $ds->getPlaylistIds();
-file_put_contents($backupDir . '/playlists-order.csv', implode($playlistIds, ';'));
+file_put_contents($backupDir . '/playlists-order.csv', implode($playlistIds, EOL));
 $playlistsCount = count($playlistIds);
 
 $s = '<?xml version="1.0" encoding="utf-8"?>';
